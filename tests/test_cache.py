@@ -10,6 +10,7 @@ else:
 
 import django
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase, TransactionTestCase
 from django.utils import translation, encoding
 
@@ -22,7 +23,7 @@ import jinja2
 
 from caching import base, invalidation, config, compat
 
-from .testapp.models import Addon, User
+from .testapp.models import Addon, Comment, User
 
 
 cache = invalidation.cache
@@ -147,6 +148,26 @@ class CachingTestCase(TestCase):
         a = Addon.objects.get(id=1)
         self.assertIs(a.from_cache, False)
         self.assertEqual(a.author1.name, 'fffuuu')
+
+    def test_generic_fk_invalidation(self):
+        """
+        When an objects gets invalidated, its generic foreign keys get invalidated
+        """
+        comment = Comment.objects.create(object_id=1,
+                                         object_type=ContentType.objects.get_for_model(Addon))
+
+        Addon.objects.get(id=1)
+        list(Addon.objects.all())
+
+        self.assertTrue(Addon.objects.get(id=1).from_cache)
+        a = [x for x in Addon.objects.all() if x.id == 1][0]
+        self.assertTrue(a.from_cache)
+
+        comment.save()
+
+        self.assertFalse(Addon.objects.get(id=1).from_cache)
+        a = [x for x in Addon.objects.all() if x.id == 1][0]
+        self.assertFalse(a.from_cache)
 
     def test_raw_cache(self):
         sql = 'SELECT * FROM %s WHERE id = 1' % Addon._meta.db_table

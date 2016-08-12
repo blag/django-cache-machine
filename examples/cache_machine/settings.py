@@ -31,6 +31,7 @@ DATABASES = {
 }
 
 INSTALLED_APPS = (
+    'django.contrib.contenttypes',
     'django_nose',
     'tests.testapp',
 )

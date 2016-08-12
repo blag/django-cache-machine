@@ -4,6 +4,11 @@ import functools
 import logging
 
 import django
+try:
+    # Django >= 1.7
+    from django.contrib.contenttypes.fields import GenericForeignKey
+except ImportError:
+    from django.contrib.contenttypes.generic import GenericForeignKey
 from django.db import models
 from django.db.models import signals
 from django.db.models.sql import query, EmptyResultSet
@@ -288,6 +293,17 @@ class CachingMixin(object):
         keys = [fk.rel.to._cache_key(val, incl_db and self._state.db or None)
                 for fk, val in list(fks.items())
                 if val is not None and hasattr(fk.rel.to, '_cache_key')]
+
+        # Grab all of the fields that are GFKs that point to CachingMixin models
+        generics = [f for f in self._meta.virtual_fields
+                    if isinstance(f, GenericForeignKey) and
+                    getattr(self, f.ct_field) and
+                    hasattr(getattr(self, f.ct_field).model_class(), '_cache_key')]
+
+        if generics:
+            keys = keys + [getattr(self, f.ct_field).model_class()._cache_key(getattr(self, f.fk_field), self._state.db)
+                           for f in generics]
+
         return (self.get_cache_key(incl_db=incl_db),) + tuple(keys)
 
     def _flush_keys(self):

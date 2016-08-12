@@ -1,5 +1,10 @@
 from __future__ import unicode_literals
 
+try:
+    from django.contrib.contenttypes.fields import GenericForeignKey
+except ImportError:
+    from django.contrib.contenttypes.generic import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils import six
 
@@ -37,3 +42,15 @@ class Addon(CachingMixin, models.Model):
         """This is a docstring for calls()"""
         call_counter()
         return arg, call_counter.call_count
+
+
+class Comment(CachingMixin, models.Model):
+    object_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    object = GenericForeignKey('object_type', 'object_id')
+
+    object2_type = models.ForeignKey(ContentType, null=True, related_name='+')
+    object2_id = models.PositiveIntegerField(null=True)
+    object2 = GenericForeignKey('object2_type', 'object2_id')
+
+    objects = CachingManager()
